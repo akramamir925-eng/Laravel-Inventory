@@ -9,11 +9,13 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Payment;
 use App\Models\PaymentDetail;
+use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Unit;
 use Auth;
 use DB;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InvoiceController extends Controller
 {
@@ -94,7 +96,7 @@ class InvoiceController extends Controller
                         $payment->invoice_id = $invoice->id;
                         $payment->customer_id = $customer_id;
                         $payment->paid_status = $request->paid_status;
-                        $payment->discount_amount = $request->discount_amount;
+                        $payment->discount_amount = $request->discount_amount ?? 0;
                         $payment->total_amount = $request->estimated_amount;
 
                         if ($request->paid_status == 'full_paid') {
@@ -132,7 +134,7 @@ class InvoiceController extends Controller
     {
         $allData = Invoice::orderBy('date', 'desc')->orderBy('id', 'desc')->where('status', '0')->get();
         return view('backend.invoice.invoice_pending_list', compact('allData'));
-    } 
+    }
 
     public function InvoiceDelete($id)
     {
@@ -149,8 +151,70 @@ class InvoiceController extends Controller
         return redirect()->back()->with($notification);
     }
 
-    public function InvoiceApprove($id){
-        $invoice = Invoice::findOrFail($id);
-        return view('backend.invoice.invoice_approve', compact('invoice'));        
+    public function InvoiceApprove($id)
+    {
+        $invoice = Invoice::with('invoice_details')->findOrFail($id);
+        return view('backend.invoice.invoice_approve', compact('invoice'));
     }
+
+    public function ApprovalStore(Request $request, $id)
+    {
+        foreach ($request['selling_qty'] as $key => $val) {
+            $invoice_details = InvoiceDetail::where('id', $key)->first();
+            $product = Product::where('id', $invoice_details->product_id)->first();
+            if ($product->quantity < $request->selling_qty[$key]) {
+                $notification = array(
+                    'message' => 'Sorry You Approve Maximum Value',
+                    'alert-type' => 'error',
+                );
+                return redirect()->back()->with($notification);
+            }
+        }
+
+        $invoice = Invoice::findOrFail($id);
+        $invoice->updated_by = Auth::user()->id;
+        $invoice->status = '1';
+
+        DB::transaction(function () use ($request, $invoice, $id) {
+            foreach ($request['selling_qty'] as $key => $val) {
+                $invoice_details = InvoiceDetail::where('id', $key)->first();
+                $product = Product::where('id', $invoice_details->product_id)->first();
+                $product->quantity = ((float) $product->quantity) - ((float) $request->selling_qty[$key]);
+                $product->save();
+            }
+            $invoice->save();
+        });
+        $notification = array(
+            'message' => 'Invoice Approve Successfully',
+            'alert-type' => 'success'
+        );
+        return redirect()->route('invoice.pending.list')->with($notification);
+
+    }
+
+    public function PrintInvoiceList(){
+        $allData = Invoice::orderBy('date', 'desc')->orderBy('id', 'desc')->where('status', '1')->get();
+        return view('backend.invoice.print_invoice_list', compact('allData'));
+    }
+
+    public function PrintInvoice($id){
+        $invoice = Invoice::with('invoice_details')->findOrFail($id);
+        return view('backend.pdf.invoice_pdf', compact('invoice'));
+    }
+
+    public function DailyInvoiceReport(){
+        return view('backend.invoice.daily_invoice_report');
+    }
+
+    public function DailyInvoicePdf(Request $request){
+        $sdate = date('Y-m-d', strtotime($request->start_date));
+        $edate = date('Y-m-d', strtotime($request->end_date));
+
+        $allData = Invoice::whereBetween('date', [$sdate,$edate])->where('status', '1')->get();
+
+        $start_date = date('Y-m-d', strtotime($request->start_date));
+        $end_date = date('Y-m-d', strtotime($request->end_date));
+        return view('backend.pdf.daily_invoice_report_pdf', compact('allData', 'start_date', 'end_date'));
+    }
+
 }

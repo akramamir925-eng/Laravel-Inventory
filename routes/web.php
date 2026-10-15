@@ -7,6 +7,7 @@ use App\Http\Controllers\Pos\DefaultController;
 use App\Http\Controllers\Pos\InvoiceController;
 use App\Http\Controllers\Pos\ProductController;
 use App\Http\Controllers\Pos\PurchaseController;
+use App\Http\Controllers\Pos\StockController;
 use App\Http\Controllers\Pos\SupplierController;
 use App\Http\Controllers\Pos\UnitController;
 use App\Http\Controllers\ProfileController;
@@ -114,6 +115,19 @@ Route::controller(InvoiceController::class)->group(function () {
     Route::get('/invoice/pending', 'InvoicePendingList')->name('invoice.pending.list');
     Route::get('/invoice/delete/{id}', 'InvoiceDelete')->name('invoice.delete');
     Route::get('/invoice/invoice/{id}', 'InvoiceApprove')->name('invoice.approve');
+    Route::post('/approve/approve/{id}', 'ApprovalStore')->name('approve.store');
+    Route::get('/print/invoice/list', 'PrintInvoiceList')->name('print.invoice.list');
+    Route::get('/print/invoice/{id}', 'PrintInvoice')->name('print.invoice');
+    Route::get('/daily/invoice/report', 'DailyInvoiceReport')->name('daily.invoice.report');
+    Route::get('/daily/invoice/pdf', 'DailyInvoicePdf')->name('daily.invoice.pdf');
+});
+
+// Stock ALL Route
+
+Route::controller(StockController::class)->group(function () {
+    Route::get('/stock/report', 'StockReport')->name('stock.report');
+    Route::get('/stock/report/pdf', 'StockReportPdf')->name('stock.report.pdf');
+    Route::get('/stock/supplier/wise', 'StockSupplierWise')->name('stock.supplier.wise');
 });
 
 // Default All Route

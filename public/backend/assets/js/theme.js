@@ -149,6 +149,40 @@ $(document).ready(function () {
             $(element).removeClass('is-invalid');
         },
     });
+
+    // Daily Invoice Report Form
+
+    $('#dailyReport').validate({
+        rules: {
+            start_date: {
+                required: true,
+            },
+            end_date: {
+                required: true,
+            },
+        },
+        messages: {
+
+            start_date: {
+                required: 'Please Select Start Date.',
+            },
+
+            end_date: {
+                required: 'Please Select End Date.',
+            },
+        },
+        errorElement: 'span',
+        errorPlacement: function (error, element) {
+            error.addClass('invalid-feedback');
+            element.closest('.form-group').append(error);
+        },
+        highlight: function (element, errorClass, validClass) {
+            $(element).addClass('is-invalid');
+        },
+        unhighlight: function (element, errorClass, validClass) {
+            $(element).removeClass('is-invalid');
+        },
+    });
 });
 
 $(document).ready(function () {
@@ -223,4 +257,12 @@ $(function () {
     });
 
 });
-
+function downloadPDF() {
+    html2pdf().set({
+        margin: 3,
+        filename: 'invoice.pdf',
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    }).from(document.getElementById('invoiceTable')).save();
+}
