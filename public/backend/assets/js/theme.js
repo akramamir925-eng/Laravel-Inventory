@@ -183,6 +183,32 @@ $(document).ready(function () {
             $(element).removeClass('is-invalid');
         },
     });
+
+    // Stock Report Form
+
+    $('#stockForm').validate({
+        rules: {
+            supplier_id: {
+                required: true,
+            },
+        },
+        messages: {
+            supplier_id: {
+                required: 'Please Select Supplier.',
+            },
+        },
+        errorElement: 'span',
+        errorPlacement: function (error, element) {
+            error.addClass('invalid-feedback');
+            element.closest('.form-group').append(error);
+        },
+        highlight: function (element, errorClass, validClass) {
+            $(element).addClass('is-invalid');
+        },
+        unhighlight: function (element, errorClass, validClass) {
+            $(element).removeClass('is-invalid');
+        },
+    });
 });
 
 $(document).ready(function () {
@@ -230,6 +256,7 @@ $(function () {
     });
 
 });
+
 $(function () {
     $(document).on('click', '#ApprovedBtn', function (e) {
         e.preventDefault();
@@ -257,6 +284,7 @@ $(function () {
     });
 
 });
+
 function downloadPDF() {
     html2pdf().set({
         margin: 3,
@@ -266,3 +294,28 @@ function downloadPDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     }).from(document.getElementById('invoiceTable')).save();
 }
+
+$(document).on('change', '.search_value', function () {
+    var search_value = $(this).val();
+    if (search_value == 'supplier_wise') {
+        $('.show_supplier').show();
+    } else {
+        $('.show_supplier').hide();
+    }
+});
+$(document).on('change', '.search_value', function () {
+    var search_value = $(this).val();
+    if (search_value == 'product_wise') {
+        $('.show_product').show();
+    } else {
+        $('.show_product').hide();
+    }
+});
+$(document).on('change', '#paid_status', function () {
+    var paid_status = $(this).val();
+    if (paid_status == 'partial_paid') {
+        $('.paid_amount').show();
+    } else {
+        $('.paid_amount').hide();
+    }
+});

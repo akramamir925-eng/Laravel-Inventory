@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Pos;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Payment;
+use App\Models\PaymentDetail;
 use Auth;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -11,21 +13,25 @@ use Intervention\Image\Facades\Image;
 
 class CustomerController extends Controller
 {
-   public function CustomerAll(){
-    $customers = Customer::latest()->get();
-    return view("backend.customer.customer_all", compact("customers"));
+   public function CustomerAll()
+   {
+      $customers = Customer::latest()->get();
+      return view("backend.customer.customer_all", compact("customers"));
    }
 
-   public function CustomerAdd(){
-    return view("backend.customer.customer_add");
+   public function CustomerAdd()
+   {
+      return view("backend.customer.customer_add");
    }
 
-   public function CustomerStore(Request $request){
+   public function CustomerStore(Request $request)
+   {
 
       $image = $request->file('customer_image');
-      $name_gen = hexdec(uniqid()) . pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME) . '.png';;
-      Image::make($image)->resize(200,200)->save('upload/customer/'.$name_gen);
-      $save_url = 'upload/customer/'.$name_gen;
+      $name_gen = hexdec(uniqid()) . pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME) . '.png';
+      ;
+      Image::make($image)->resize(200, 200)->save('upload/customer/' . $name_gen);
+      $save_url = 'upload/customer/' . $name_gen;
 
       Customer::insert([
          'name' => $request->name,
@@ -44,19 +50,21 @@ class CustomerController extends Controller
       return redirect()->route('customer.all')->with($notification);
    }
 
-   public function CustomerEdit($id){
+   public function CustomerEdit($id)
+   {
       $customer = Customer::findOrFail($id);
       return view('backend.customer.customer_edit', compact('customer'));
    }
 
 
-   public function CustomerUpdate(Request $request){
+   public function CustomerUpdate(Request $request)
+   {
       $customer_id = $request->id;
-      if($request->file('customer_image')){
+      if ($request->file('customer_image')) {
          $image = $request->file('customer_image');
          $name_gen = hexdec(uniqid()) . pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME) . '.png';
-         Image::make($image)->resize(200,200)->save('upload/customer/'.$name_gen);
-         $save_url = 'upload/customer/'.$name_gen;
+         Image::make($image)->resize(200, 200)->save('upload/customer/' . $name_gen);
+         $save_url = 'upload/customer/' . $name_gen;
 
          Customer::findOrFail($customer_id)->update([
             'name' => $request->name,
@@ -73,7 +81,7 @@ class CustomerController extends Controller
             'alert-type' => 'success'
          );
          return redirect()->route('customer.all')->with($notification);
-      } else{
+      } else {
          Customer::findOrFail($customer_id)->update([
             'name' => $request->name,
             'mobile_no' => $request->mobile_no,
@@ -91,7 +99,8 @@ class CustomerController extends Controller
       }
    }
 
-   public function CustomerDelete($id){
+   public function CustomerDelete($id)
+   {
       $customer = Customer::findOrFail($id);
 
       $img = $customer->customer_image;
@@ -104,5 +113,71 @@ class CustomerController extends Controller
          'alert-type' => 'success'
       );
       return redirect()->back()->with($notification);
+   }
+
+   public function CreditCustomer()
+   {
+      $allData = Payment::whereIn('paid_status', ['full_due', 'partial_paid'])->get();
+      return view('backend.customer.customer_credit', compact('allData'));
+   }
+
+   public function CreditCustomerPrintPdf()
+   {
+      $allData = Payment::whereIn('paid_status', ['full_due', 'partial_paid'])->get();
+      return view('backend.pdf.customer_credit_pdf', compact('allData'));
+   }
+
+   public function CustomerEditInvoice($invoice_id)
+   {
+      $payment = Payment::where('invoice_id', $invoice_id)->first();
+      return view('backend.customer.edit_customer_invoice', compact('payment'));
+   }
+
+   public function CustomerUpdateInvoice(Request $request, $invoice_id){
+      if ($request->new_paid_amount < $request->paid_amount) {
+         $notification = array(
+            'message' => 'Sorry You Paid A Maximum Value',
+            'alert-type' => 'error'
+         );
+         return redirect()->back()->with($notification);
+      } else {
+         $payment = Payment::where('invoice_id', $invoice_id)->first();
+         $payment_details = new PaymentDetail();
+         $payment->paid_status = $request->paid_status;
+         if ($request->paid_status == 'full_paid') {
+            $payment->paid_amount = Payment::where('invoice_id',$invoice_id)->first()['paid_amount']+$request->new_paid_amount;
+            $payment->due_amount = '0';
+            $payment_details->current_paid_amount = $request->new_paid_amount;
+         } elseif ($request->paid_status == 'partial_paid') {
+            $payment->paid_amount = Payment::where('invoice_id',$invoice_id)->first()['paid_amount']+$request->paid_amount;
+            $payment->due_amount = Payment::where('invoice_id',$invoice_id)->first()['due_amount']-$request->paid_amount;
+            $payment_details->current_paid_amount = $request->paid_amount;
+         }
+         $payment->save();
+         $payment_details->invoice_id = $invoice_id;
+         $payment_details->date = date('Y-m-d', strtotime($request->date));
+         $payment_details->updated_by = Auth::user()->id;
+         $payment_details->save();
+         $notification = array(
+            'message' => 'Invoice Update Successfully',
+            'alert-type' => 'success'
+         );
+         return redirect()->route('credit.customer')->with($notification);
+      }
+   }
+
+   public function CreditInvoiceDetailPdf($invoice_id){
+      $payment = Payment::where('invoice_id', $invoice_id)->first();
+      return view('backend.pdf.invoice_details_pdf', compact('payment'));
+   }
+
+   public function PaidCustomer(){
+      $allData = Payment::where('paid_status', '!=', 'full_due')->get();
+      return view('backend.customer.customer_paid', compact('allData'));
+   }
+
+   public function PaidCustomerPrintPdf(){
+      $allData = Payment::where('paid_status', '!=', 'full_due')->get();
+      return view('backend.pdf.customer_paid_pdf', compact('allData'));
    }
 }
